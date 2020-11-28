@@ -7,7 +7,9 @@ include_directories(${LIBCURL_INCLUDE_DIRS})
 include_directories(${OBS_JANSSON_INCLUDE_DIRS})
 
 set(rtmp-services_SOURCES
+	check-connection.c
 	twitch.c
+	onlyfans.c
 	younow.c
 	nimotv.c
 	showroom.c
@@ -23,7 +25,9 @@ if(WIN32)
 endif()
 
 set(rtmp-services_HEADERS
+	check-connection.h
 	twitch.h
+	onlyfans.h
 	younow.h
 	nimotv.h
 	showroom.h

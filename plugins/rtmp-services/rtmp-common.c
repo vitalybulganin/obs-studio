@@ -9,6 +9,7 @@
 #include "younow.h"
 #include "nimotv.h"
 #include "showroom.h"
+#include "onlyfans.h"
 
 struct rtmp_common {
 	char *service;
@@ -37,6 +38,7 @@ static inline const char *get_string_val(json_t *service, const char *key);
 static inline int get_int_val(json_t *service, const char *key);
 
 extern void twitch_ingests_refresh(int seconds);
+extern void onlyfans_ingests_refresh(int seconds);
 
 static void ensure_valid_url(struct rtmp_common *service, json_t *json,
 			     obs_data_t *settings)
@@ -364,6 +366,26 @@ static bool fill_twitch_servers_locked(obs_property_t *servers_prop)
 	return true;
 }
 
+static bool fill_onlyfans_servers_locked(obs_property_t *servers_prop)
+{
+	size_t count = onlyfans_ingest_count();
+
+	obs_property_list_add_string(servers_prop,
+				     obs_module_text("Server.Auto"),
+				     "auto");
+
+	if (count <= 1) {
+		return false;
+	}
+
+	for (size_t i = 0; i < count; i++) {
+		const struct onlyfans_ingest ingest = get_onlyfans_ingest(i);
+		obs_property_list_add_string(servers_prop, ingest.name, ingest.url);
+	}
+
+	return true;
+}
+
 static inline bool fill_twitch_servers(obs_property_t *servers_prop)
 {
 	bool success;
@@ -371,6 +393,17 @@ static inline bool fill_twitch_servers(obs_property_t *servers_prop)
 	twitch_ingests_lock();
 	success = fill_twitch_servers_locked(servers_prop);
 	twitch_ingests_unlock();
+
+	return success;
+}
+
+static inline bool fill_onlyfans_servers(obs_property_t *servers_prop)
+{
+	bool success;
+
+	onlyfans_ingests_lock();
+	success = fill_onlyfans_servers_locked(servers_prop);
+	onlyfans_ingests_unlock();
 
 	return success;
 }
@@ -395,6 +428,11 @@ static void fill_servers(obs_property_t *servers_prop, json_t *service,
 
 	if (strcmp(name, "Twitch") == 0) {
 		if (fill_twitch_servers(servers_prop))
+			return;
+	}
+
+	if (strcmp(name, "OnlyFans.com") == 0) {
+		if (fill_onlyfans_servers(servers_prop))
 			return;
 	}
 
@@ -661,6 +699,20 @@ static const char *rtmp_common_url(void *data)
 			twitch_ingests_unlock();
 
 			return ing.url;
+		}
+	}
+
+	if (service->service && strcmp(service->service, "OnlyFans.com") == 0) {
+		if (service->server && strcmp(service->server, "auto") == 0) {
+			struct onlyfans_ingest ingest;
+
+                        onlyfans_ingests_refresh(3);
+
+			onlyfans_ingests_lock();
+                        ingest = get_onlyfans_ingest(0);
+			onlyfans_ingests_unlock();
+
+			return ingest.url;
 		}
 	}
 
